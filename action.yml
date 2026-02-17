@@ -48,8 +48,8 @@ runs:
         else
           REPOS_ENDPOINT="orgs/$REPO_OWNER/repos"
         fi
-        # Fetch all pages via gh's --paginate (follows Link headers); --slurp = one JSON array
-        REPOS=$(gh api "$REPOS_ENDPOINT" --method GET -f per_page=100 -f type=all --paginate --slurp -q '.[].name' | sed '/^$/d' | sort -u)
+        # Fetch all pages via gh's --paginate (follows Link headers)
+        REPOS=$(gh api "$REPOS_ENDPOINT" --method GET -f per_page=100 -f type=all --paginate -q '.[].name' | sed '/^$/d' | sort -u)
         echo "=========================================="
         echo "Repos found ($(echo "$REPOS" | wc -l)):"
         echo "$REPOS" | while read -r r; do echo "  - $r"; done
