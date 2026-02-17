@@ -1,0 +1,74 @@
+# Reusable action: mirror GitHub repos to GitLab
+# Repo: gh-gl-mirror-action (public); use as: owner/gh-gl-mirror-action@main
+name: 'Mirror GitHub to GitLab'
+description: 'Lists your GitHub repos and mirrors them to GitLab (creates projects if needed).'
+inputs:
+  gh_pat:
+    description: 'GitHub PAT (classic: repo scope, or fine-grained: Contents + Metadata read)'
+    required: true
+  gl_pat:
+    description: 'GitLab PAT (api or read_repository + write_repository)'
+    required: true
+  gitlab_user:
+    description: 'GitLab username (e.g. gitlab.com/this-username/...)'
+    required: true
+  visibility:
+    description: 'Visibility for new GitLab projects'
+    required: true
+    default: 'private'
+  repository_owner:
+    description: 'GitHub org/user whose repos to mirror'
+    required: true
+  skip_repository:
+    description: 'Repo name to exclude from mirror list (e.g. this orchestrator repo)'
+    required: false
+    default: ''
+runs:
+  using: 'composite'
+  steps:
+    - name: Mirror GitHub repos to GitLab
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_pat }}
+        GL_PAT: ${{ inputs.gl_pat }}
+        GITLAB_USER: ${{ inputs.gitlab_user }}
+        VISIBILITY: ${{ inputs.visibility }}
+        REPO_OWNER: ${{ inputs.repository_owner }}
+        SKIP_REPO: ${{ inputs.skip_repository }}
+      run: |
+        set -e
+        # Resolve users vs orgs endpoint (users/OWNER/repos vs orgs/OWNER/repos)
+        if gh api "/users/$REPO_OWNER/repos?per_page=1" -q '.[].name' >/dev/null 2>&1; then
+          REPOS_ENDPOINT="users/$REPO_OWNER/repos"
+        else
+          REPOS_ENDPOINT="orgs/$REPO_OWNER/repos"
+        fi
+        # Paginate: per_page=100 (API max), fetch all pages
+        REPOS=""
+        PAGE=1
+        while true; do
+          PAGE_REPOS=$(gh api "$REPOS_ENDPOINT?per_page=100&page=$PAGE&type=all" -q '.[].name' 2>/dev/null || true)
+          [ -z "$PAGE_REPOS" ] && break
+          REPOS="$REPOS"$'\n'"$PAGE_REPOS"
+          COUNT=$(echo "$PAGE_REPOS" | wc -l)
+          [ "$COUNT" -lt 100 ] && break
+          PAGE=$((PAGE + 1))
+        done
+        REPOS=$(echo "$REPOS" | sed '/^$/d' | sort -u)
+        for REPO in $REPOS; do
+          if [ -n "$SKIP_REPO" ] && [ "$REPO" = "$SKIP_REPO" ]; then
+            echo "Skipping $REPO (excluded)"
+            continue
+          fi
+          echo "------------------------------------------"
+          echo "Processing: $REPO"
+          curl --header "PRIVATE-TOKEN: $GL_PAT" \
+               -X POST "https://gitlab.com/api/v4/projects?name=$REPO&visibility=$VISIBILITY" \
+               -s -o /dev/null || echo "Project creation skipped (likely already exists)."
+          git clone --mirror "https://x-access-token:$GH_TOKEN@github.com/$REPO_OWNER/$REPO.git" "$REPO-tmp"
+          pushd "$REPO-tmp"
+          git push --mirror "https://oauth2:$GL_PAT@gitlab.com/$GITLAB_USER/$REPO.git"
+          popd
+          rm -rf "$REPO-tmp"
+          echo "Finished syncing $REPO"
+        done
