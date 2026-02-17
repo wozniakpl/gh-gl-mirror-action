@@ -23,6 +23,10 @@ inputs:
     description: 'Comma-separated repo names to exclude from mirror list (e.g. this orchestrator repo)'
     required: false
     default: ''
+  skip_failed_repos:
+    description: 'If true, continue with next repo when mirroring one fails instead of failing the job'
+    required: false
+    default: 'false'
 runs:
   using: 'composite'
   steps:
@@ -35,6 +39,7 @@ runs:
         VISIBILITY: ${{ inputs.visibility }}
         REPO_OWNER: ${{ inputs.repository_owner }}
         SKIP_REPOS: ${{ inputs.skip_repos }}
+        SKIP_FAILED_REPOS: ${{ inputs.skip_failed_repos }}
       run: |
         set -e
         # Resolve users vs orgs endpoint (users/OWNER/repos vs orgs/OWNER/repos)
@@ -69,10 +74,21 @@ runs:
           curl --header "PRIVATE-TOKEN: $GL_PAT" \
                -X POST "https://gitlab.com/api/v4/projects?name=$REPO&visibility=$VISIBILITY" \
                -s -o /dev/null || echo "Project creation skipped (likely already exists)."
-          git clone --mirror "https://x-access-token:$GH_TOKEN@github.com/$REPO_OWNER/$REPO.git" "$REPO-tmp"
-          pushd "$REPO-tmp"
-          git push --mirror "https://oauth2:$GL_PAT@gitlab.com/$GITLAB_USER/$REPO.git"
-          popd
-          rm -rf "$REPO-tmp"
+          mirror_repo() {
+            git clone --mirror "https://x-access-token:$GH_TOKEN@github.com/$REPO_OWNER/$REPO.git" "$REPO-tmp"
+            pushd "$REPO-tmp"
+            git push --mirror "https://oauth2:$GL_PAT@gitlab.com/$GITLAB_USER/$REPO.git"
+            popd
+            rm -rf "$REPO-tmp"
+          }
+          if [ "$SKIP_FAILED_REPOS" = "true" ]; then
+            if ! mirror_repo; then
+              echo "Failed to mirror $REPO, skipping"
+              rm -rf "$REPO-tmp"
+              continue
+            fi
+          else
+            mirror_repo
+          fi
           echo "Finished syncing $REPO"
         done

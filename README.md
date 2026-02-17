@@ -27,6 +27,7 @@ In a workflow:
 | `visibility` | Yes | New GitLab project visibility: `public`, `private`, `internal` |
 | `repository_owner` | Yes | GitHub user/org whose repos to mirror |
 | `skip_repos` | No | Comma-separated repo names to exclude (e.g. the repo that runs this workflow) |
+| `skip_failed_repos` | No | If `true`, continue with the next repo when one fails instead of failing the job (default `false`) |
 
 ## Token permissions
 
