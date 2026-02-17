@@ -14,7 +14,7 @@ In a workflow:
     gitlab_user: 'your-gitlab-username'
     visibility: 'private'          # public | private | internal
     repository_owner: ${{ github.repository_owner }}
-    skip_repository: 'my-orchestrator-repo'   # optional, exclude one repo
+    skip_repos: 'repo-a,repo-b'   # optional, comma-separated repos to exclude
 ```
 
 ## Inputs
@@ -26,7 +26,7 @@ In a workflow:
 | `gitlab_user` | Yes | GitLab username |
 | `visibility` | Yes | New GitLab project visibility: `public`, `private`, `internal` |
 | `repository_owner` | Yes | GitHub user/org whose repos to mirror |
-| `skip_repository` | No | Repo name to exclude from the list (e.g. the repo that runs this workflow) |
+| `skip_repos` | No | Comma-separated repo names to exclude (e.g. the repo that runs this workflow) |
 
 ## Token permissions
 

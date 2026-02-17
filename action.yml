@@ -19,8 +19,8 @@ inputs:
   repository_owner:
     description: 'GitHub org/user whose repos to mirror'
     required: true
-  skip_repository:
-    description: 'Repo name to exclude from mirror list (e.g. this orchestrator repo)'
+  skip_repos:
+    description: 'Comma-separated repo names to exclude from mirror list (e.g. this orchestrator repo)'
     required: false
     default: ''
 runs:
@@ -34,7 +34,7 @@ runs:
         GITLAB_USER: ${{ inputs.gitlab_user }}
         VISIBILITY: ${{ inputs.visibility }}
         REPO_OWNER: ${{ inputs.repository_owner }}
-        SKIP_REPO: ${{ inputs.skip_repository }}
+        SKIP_REPOS: ${{ inputs.skip_repos }}
       run: |
         set -e
         # Resolve users vs orgs endpoint (users/OWNER/repos vs orgs/OWNER/repos)
@@ -55,10 +55,14 @@ runs:
           PAGE=$((PAGE + 1))
         done
         REPOS=$(echo "$REPOS" | sed '/^$/d' | sort -u)
+        echo "=========================================="
+        echo "Repos found ($(echo "$REPOS" | wc -l)):"
+        echo "$REPOS" | while read -r r; do echo "  - $r"; done
+        echo "=========================================="
         for REPO in $REPOS; do
-          if [ -n "$SKIP_REPO" ] && [ "$REPO" = "$SKIP_REPO" ]; then
-            echo "Skipping $REPO (excluded)"
-            continue
+          if [ -n "$SKIP_REPOS" ]; then
+            SKIP_LIST=",$(echo "$SKIP_REPOS" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | paste -sd, -),"
+            case "$SKIP_LIST" in (*",$REPO,"*) echo "Skipping $REPO (excluded)"; continue ;; esac
           fi
           echo "------------------------------------------"
           echo "Processing: $REPO"
