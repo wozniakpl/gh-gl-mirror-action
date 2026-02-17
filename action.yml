@@ -48,11 +48,11 @@ runs:
         else
           REPOS_ENDPOINT="orgs/$REPO_OWNER/repos"
         fi
-        # Paginate: per_page=100 (API max), fetch all pages
+        # Paginate: per_page=100 (API max), fetch all pages (-f + GET so query params are sent)
         REPOS=""
         PAGE=1
         while true; do
-          PAGE_REPOS=$(gh api "$REPOS_ENDPOINT?per_page=100&page=$PAGE&type=all" -q '.[].name' 2>/dev/null || true)
+          PAGE_REPOS=$(gh api "$REPOS_ENDPOINT" --method GET -f per_page=100 -f page="$PAGE" -f type=all -q '.[].name' 2>/dev/null || true)
           [ -z "$PAGE_REPOS" ] && break
           REPOS="$REPOS"$'\n'"$PAGE_REPOS"
           COUNT=$(echo "$PAGE_REPOS" | wc -l)
