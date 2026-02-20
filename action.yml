@@ -13,7 +13,7 @@ inputs:
     description: 'GitLab username (e.g. gitlab.com/this-username/...)'
     required: true
   visibility:
-    description: 'Visibility for new GitLab projects'
+    description: 'Visibility for new GitLab projects: public, private, internal, or keep (preserve source visibility)'
     required: true
     default: 'private'
   repository_owner:
@@ -56,8 +56,19 @@ runs:
           fi
           echo "------------------------------------------"
           echo "Processing: $REPO"
+          EFFECTIVE_VISIBILITY="$VISIBILITY"
+          if [ "$VISIBILITY" = "keep" ]; then
+            GH_VISIBILITY=$(gh repo view "$REPO_OWNER/$REPO" --json visibility -q '.visibility' 2>/dev/null || echo "private")
+            GH_VISIBILITY=$(echo "$GH_VISIBILITY" | tr '[:upper:]' '[:lower:]')
+            case "$GH_VISIBILITY" in
+              public) EFFECTIVE_VISIBILITY="public" ;;
+              internal) EFFECTIVE_VISIBILITY="internal" ;;
+              *) EFFECTIVE_VISIBILITY="private" ;;
+            esac
+            echo "Source visibility: $GH_VISIBILITY -> GitLab visibility: $EFFECTIVE_VISIBILITY"
+          fi
           curl --header "PRIVATE-TOKEN: $GL_PAT" \
-               -X POST "https://gitlab.com/api/v4/projects?name=$REPO&visibility=$VISIBILITY" \
+               -X POST "https://gitlab.com/api/v4/projects?name=$REPO&visibility=$EFFECTIVE_VISIBILITY" \
                -s -o /dev/null || echo "Project creation skipped (likely already exists)."
           mirror_repo() {
             git clone --mirror "https://x-access-token:$GH_TOKEN@github.com/$REPO_OWNER/$REPO.git" "$REPO-tmp"
