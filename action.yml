@@ -42,14 +42,9 @@ runs:
         SKIP_FAILED_REPOS: ${{ inputs.skip_failed_repos }}
       run: |
         set -e
-        # Resolve users vs orgs endpoint (users/OWNER/repos vs orgs/OWNER/repos)
-        if gh api "/users/$REPO_OWNER/repos?per_page=1" -q '.[].name' >/dev/null 2>&1; then
-          REPOS_ENDPOINT="users/$REPO_OWNER/repos"
-        else
-          REPOS_ENDPOINT="orgs/$REPO_OWNER/repos"
-        fi
-        # Fetch all pages via gh's --paginate (follows Link headers)
-        REPOS=$(gh api "$REPOS_ENDPOINT" --method GET -f per_page=100 -f type=all --paginate -q '.[].name' | sed '/^$/d' | sort -u)
+        # Fetch all repos using gh repo list with high limit (handles pagination internally)
+        # Using --limit 10000 to ensure we get all repos even for large organizations
+        REPOS=$(gh repo list "$REPO_OWNER" --limit 10000 --json name -q '.[].name' | sort -u)
         echo "=========================================="
         echo "Repos found ($(echo "$REPOS" | wc -l)):"
         echo "$REPOS" | while read -r r; do echo "  - $r"; done
