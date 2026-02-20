@@ -7,7 +7,7 @@ Reusable GitHub Action that mirrors your GitHub repositories to GitLab: lists re
 In a workflow:
 
 ```yaml
-- uses: wozniakpl/gh-gl-mirror-action@main
+- uses: wozniakpl/gh-gl-mirror-action@v1
   with:
     gh_pat: ${{ secrets.GH_PAT }}
     gl_pat: ${{ secrets.GL_PAT }}
